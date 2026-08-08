@@ -7,3 +7,6 @@ Senet-boards.png
 Senet-boards*.png
 .DS_Store
 Thumbs.db
+
+# dev-only launch config
+.claude/

@@ -1,13 +1,14 @@
 /* Senet: Soul of Egypt — offline cache.
    Strategy: NETWORK-FIRST for our own files (so updates show immediately),
    CACHE-FIRST for the three.js CDN (so the museum works offline). */
-const CACHE = 'senet-v02';
+const CACHE = 'senet-v03';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './apple-touch-icon.png'
 ];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

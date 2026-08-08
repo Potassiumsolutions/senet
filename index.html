@@ -7,6 +7,11 @@
 <title>Senet — Soul of Egypt</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Senet">
 <style>
 :root{
   --sand:#e7d3a1; --sand2:#dcc189; --lime:#f0e4c4; --ink:#3a2c14;
@@ -718,7 +723,12 @@ function animSticks(faces){
 
 /* ---------- tiny sound ---------- */
 let AC=null;
-function beep(f,d){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;o.type='triangle';g.gain.value=.06;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+function beep(f,d){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;o.type='triangle';g.gain.value=.06;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+/* iOS: create+unlock the audio context on the first real user gesture so a
+   timer-driven beep (e.g. the Scribe's move) can't leave audio muted forever. */
+function unlockAudio(){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();}catch(e){}}
+window.addEventListener('pointerdown',unlockAudio,{once:true});
+window.addEventListener('touchend',unlockAudio,{once:true});
 
 /* =========================================================================
    MUSEUM — reuses the Stonecutter voxel + orbit pattern (render3D)
