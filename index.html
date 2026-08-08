@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#c8a24a">
+<title>Senet — Soul of Egypt</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --sand:#e7d3a1; --sand2:#dcc189; --lime:#f0e4c4; --ink:#3a2c14;
+  --gold:#c8a24a; --gold2:#e8c669; --lapis:#1f5c8b; --water:#2f7fb0;
+  --nefer:#3f8f6a; --p1:#8b3a2f; --p2:#243b57; --line:#b79a5e;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  font-family:'Segoe UI',system-ui,sans-serif;color:var(--ink);
+  background:
+    radial-gradient(120% 80% at 50% -10%,#f6ecc9,#e4cf9a 60%,#cbac6f 100%) fixed;
+  display:flex;flex-direction:column;align-items:center;
+  padding:env(safe-area-inset-top) 12px calc(env(safe-area-inset-bottom) + 12px);
+  min-height:100%;
+}
+header{width:100%;max-width:520px;text-align:center;margin:10px 0 4px}
+h1{font-size:22px;margin:0;letter-spacing:.5px}
+h1 span{color:#8a6b22}
+.tag{font-size:12px;color:#6b5426;margin-top:2px}
+.wrap{width:100%;max-width:520px}
+.screen{display:none}
+.screen.on{display:block;animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---- board ---- */
+.board{
+  --cell:clamp(26px, 8.6vw, 44px);
+  background:linear-gradient(#e9d6a6,#d8bd82);
+  border:3px solid var(--gold);border-radius:14px;
+  padding:10px;box-shadow:0 8px 24px rgba(80,55,10,.25),inset 0 0 0 2px #f3e6bf;
+  display:grid;gap:5px;justify-content:center;width:max-content;max-width:100%;margin:0 auto;
+  touch-action:manipulation;
+}
+.cell{
+  position:relative;width:var(--cell);height:var(--cell);border-radius:9px;
+  background:var(--lime);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:#a98c50;user-select:none;
+}
+.cell .num{position:absolute;top:2px;left:4px;font-size:9px;opacity:.5}
+.cell.special{font-size:20px;cursor:help}
+/* hover fly-out on special squares (desktop) */
+.cell[data-tip]:hover::before{
+  content:attr(data-tip);position:absolute;bottom:116%;left:50%;transform:translateX(-50%);
+  background:#3a2c14;color:#fbf3da;padding:8px 11px;border-radius:9px;
+  font-size:12px;font-weight:600;line-height:1.35;width:max-content;max-width:180px;
+  text-align:center;white-space:normal;z-index:40;box-shadow:0 6px 18px rgba(0,0,0,.45);pointer-events:none;
+}
+.cell[data-tip]:hover{z-index:40}
+.cell.t-safe{background:#dff0e4;border-color:var(--nefer)}
+.cell.t-water{background:#cfe8f4;border-color:var(--water)}
+.cell.t-rebirth{background:#f6ecc6;border-color:var(--gold)}
+.cell.t-gate{background:#f3e7c2;border-color:var(--gold)}
+.cell.move{cursor:pointer;outline:3px dashed var(--nefer);outline-offset:1px;background:#e2f4e8;box-shadow:0 0 16px var(--nefer)}
+.cell.move::after{content:'';position:absolute;width:30%;height:30%;border-radius:50%;background:var(--nefer);box-shadow:0 0 8px var(--nefer);animation:tdot .9s infinite;pointer-events:none}
+@keyframes tdot{0%,100%{transform:scale(.6);opacity:.55}50%{transform:scale(1.15);opacity:.95}}
+.pawn{
+  width:72%;height:72%;border-radius:50%;position:relative;
+  box-shadow:0 3px 6px rgba(0,0,0,.35),inset 0 2px 3px rgba(255,255,255,.35);
+  transition:transform .18s;
+}
+.pawn.p1{background:radial-gradient(circle at 35% 30%,#c96a54,var(--p1))}
+.pawn.p2{background:radial-gradient(circle at 35% 30%,#4a6a92,var(--p2))}
+.pawn.cone{border-radius:50% 50% 50% 50%/60% 60% 40% 40%}
+.pawn.sel{transform:scale(1.12);cursor:pointer}
+.cell.pick{cursor:pointer;background:#fff3c4;outline:3px solid var(--gold);box-shadow:0 0 18px 2px var(--gold2)}
+.cell.pick .pawn{animation:bob .7s ease-in-out infinite;box-shadow:0 0 0 4px #fff6d0,0 0 22px 6px var(--gold2),0 4px 8px rgba(0,0,0,.4);position:relative;z-index:2}
+@keyframes bob{0%,100%{transform:translateY(6%) scale(1.05)}50%{transform:translateY(-20%) scale(1.15)}}
+.cell.hintbad{animation:shake .3s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+/* ---- controls ---- */
+.hud{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0}
+.turn{font-weight:600;font-size:15px}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:5px}
+.dot.p1{background:var(--p1)}.dot.p2{background:var(--p2)}
+.sticks{display:flex;gap:6px;justify-content:center;margin:6px 0}
+.stick{
+  width:18px;height:54px;border-radius:6px;border:1px solid #9c7f42;
+  background:linear-gradient(#caa85e,#a8863f);transition:transform .3s,background .3s;
+}
+.stick.up{background:linear-gradient(#f4e6bd,#e6d199);box-shadow:0 0 8px #f0d98a}
+.stick.roll{animation:sroll .5s}
+@keyframes sroll{0%{transform:rotateX(0)}50%{transform:rotateX(180deg) translateY(-8px)}100%{transform:rotateX(360deg)}}
+.throwline{text-align:center;min-height:22px;font-weight:600;color:#7a5e1e}
+.qref{margin-top:10px;font-size:12.5px;color:#5c4718;line-height:1.5;background:#f6ecc6;border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.qref div{display:flex;gap:8px;align-items:baseline;margin:3px 0}
+.qref .k{flex:none;width:20px;text-align:center}
+.qref b{color:var(--ink)}
+.btn{
+  appearance:none;border:none;cursor:pointer;font:inherit;font-weight:600;
+  padding:13px 18px;border-radius:12px;color:#3a2c10;
+  background:linear-gradient(var(--gold2),var(--gold));
+  box-shadow:0 4px 10px rgba(120,90,20,.3);width:100%;font-size:16px;
+}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:default;box-shadow:none}
+.btn.ghost{background:#f2e6c4;color:#6b5426;box-shadow:none;border:1px solid var(--line)}
+.row{display:flex;gap:8px;margin-top:8px}
+.scorecap{text-align:center;font-size:11.5px;color:#7a5e2e;margin:10px 0 4px}
+.scorecap b{color:var(--ink)}
+.score{display:flex;justify-content:space-between;gap:12px;margin:0 2px}
+.score .side{flex:1}
+.score .side.r{text-align:right}
+.score .lbl{font-size:13px;color:#5c4718;margin-bottom:4px}
+.score .lbl b{color:var(--ink)}
+.score .slots{display:flex;gap:4px}
+.score .side.r .slots{justify-content:flex-end}
+.score .slot{width:17px;height:17px;border-radius:50%;border:1.5px solid var(--line);background:#efe3bd;transition:transform .3s}
+.score .slot.f1{background:radial-gradient(circle at 35% 30%,#c96a54,var(--p1));border-color:var(--p1);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.score .slot.f2{background:radial-gradient(circle at 35% 30%,#4a6a92,var(--p2));border-color:var(--p2);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.score .slot.just{transform:scale(1.35)}
+
+/* ---- menu / museum ---- */
+.card{background:#fbf3da;border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:10px;box-shadow:0 6px 18px rgba(90,65,15,.15)}
+.center{text-align:center}
+.mtitle{font-size:18px;margin:0 0 6px}
+.mnote{font-size:14px;color:#5c4718;line-height:1.5}
+.musgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+.art{background:#f6ecc6;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;cursor:pointer}
+.art.lock{opacity:.5;cursor:default}
+.art .g{font-size:34px}
+.art .t{font-size:13px;font-weight:600;margin-top:4px}
+#mus-view{width:100%;max-width:520px}
+#mus-canvas{display:block;margin:0 auto}
+.hiero{font-size:26px;letter-spacing:4px;text-align:center;margin:8px 0;color:#5c4718}
+.ovl{position:fixed;inset:0;background:rgba(40,28,8,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.ovl .box{background:#fbf3da;border-radius:16px;padding:22px;max-width:440px;width:100%;max-height:86vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.4);animation:fade .3s}
+.guide h3{margin:16px 0 4px;font-size:15px;color:#7a5e1e;border-top:1px solid #e2d3a6;padding-top:12px}
+.guide h3:first-of-type{border-top:none;padding-top:0}
+.guide p{margin:5px 0}
+.guide .ex{background:#f2e6c4;border-radius:8px;padding:8px 10px;font-size:13px;margin:6px 0}
+.cast{display:inline-flex;gap:2px;vertical-align:-3px;margin:0 3px}
+.cast i{width:8px;height:20px;border-radius:2px;display:inline-block;border:1px solid #9c7f42;background:#a8863f}
+.cast i.up{background:#f4e6bd}
+.ovl h2{margin:0 0 8px}
+.hidden{display:none!important}
+.lvltag{text-align:center;font-size:12.5px;color:#7a5e2e;font-weight:600;margin:2px 0 8px}
+.lvl{background:#fbf3da;border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px;cursor:pointer;box-shadow:0 4px 12px rgba(90,65,15,.12)}
+.lvl.lock{opacity:.55;cursor:default;box-shadow:none}
+.lvl-h{font-size:15px;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.lvl-h b{color:var(--ink)}
+.lvl-meta{font-size:12px;color:#7a5e2e;margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
+footer{font-size:11px;color:#7a5e2e;margin-top:14px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>Senet <span>· Soul of Egypt</span></h1>
+  <div class="tag">The oldest game on Earth — cross the Duat.</div>
+</header>
+
+<div class="wrap">
+
+<!-- ===== HOME ===== -->
+<div id="scr-home" class="screen on">
+  <div class="card center">
+    <p class="mnote">Race your 5 pawns across the board by casting the sticks. Land on the Nile and the current drags you back. Guard your pieces, block the path, and reach the House of Horus first.</p>
+    <button class="btn" id="btn-play">Choose a trial</button>
+    <div class="row">
+      <button class="btn ghost" id="btn-museum">&#127963;&#65039; Museum</button>
+      <button class="btn ghost" id="btn-how">How to play</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="mtitle">Your journey through the Duat</div>
+    <div class="mnote">Five trials, each a different board, lead your soul across the underworld. Win one to unlock the next — and earn a real Egyptian artifact for the museum. <b id="home-prog"></b></div>
+  </div>
+</div>
+
+<!-- ===== LEVEL SELECT ===== -->
+<div id="scr-levels" class="screen">
+  <div class="hud">
+    <div class="turn">Choose your trial</div>
+    <button class="btn ghost" id="btn-levels-back" style="width:auto;padding:8px 12px">Menu</button>
+  </div>
+  <div class="card"><div class="mnote">Each trial is a different board on the soul’s road through the Duat. The Scribe grows more cunning as you go deeper.</div></div>
+  <div id="levellist"></div>
+</div>
+
+<!-- ===== GAME ===== -->
+<div id="scr-game" class="screen">
+  <div class="hud">
+    <div class="turn" id="turn">Your throw</div>
+    <div style="display:flex;gap:6px">
+      <button class="btn ghost" id="btn-key" style="width:auto;padding:8px 12px">&#128273; Key</button>
+      <button class="btn ghost" id="btn-quit" style="width:auto;padding:8px 12px">Menu</button>
+    </div>
+  </div>
+  <div class="lvltag" id="lvltag"></div>
+  <div class="board" id="board"></div>
+  <div class="scorecap">Stones brought home to the afterlife — first to <b>5</b> wins</div>
+  <div class="score">
+    <div class="side">
+      <div class="lbl"><span class="dot p1"></span> You &nbsp;<b id="b1">0</b>/5</div>
+      <div class="slots" id="slots1"></div>
+    </div>
+    <div class="side r">
+      <div class="lbl"><b id="b2">0</b>/5 Scribe <span class="dot p2"></span></div>
+      <div class="slots" id="slots2"></div>
+    </div>
+  </div>
+  <div class="sticks" id="sticks">
+    <div class="stick"></div><div class="stick"></div><div class="stick"></div><div class="stick"></div>
+  </div>
+  <div class="throwline" id="throwline">Cast the sticks to begin.</div>
+  <button class="btn" id="btn-throw">Cast the sticks</button>
+  <div class="qref">
+    <div><span class="k">&#127922;</span><span><b>Light</b> faces up = squares to move (all dark = 5).</span></div>
+    <div><span class="k">&#128260;</span><span>Threw a <b>1, 4 or 5</b>? Cast again — another move this turn.</span></div>
+    <div><span class="k">&#9876;&#65039;</span><span>Land on a <b>lone</b> blue stone to swap it backward.</span></div>
+    <div><span class="k">&#128737;&#65039;</span><span>Two of a colour <b>side by side</b> are safe — can’t be taken.</span></div>
+    <div><span class="k">&#127754;</span><span><b>Nile</b> squares sweep you back. The <b>last 3 squares</b> leave on exact 3/2/1.</span></div>
+  </div>
+</div>
+
+<!-- ===== MUSEUM ===== -->
+<div id="scr-museum" class="screen">
+  <div class="hud">
+    <div class="turn">&#127963;&#65039; Duat Museum</div>
+    <button class="btn ghost" id="btn-mus-back" style="width:auto;padding:8px 12px">Menu</button>
+  </div>
+  <div class="card"><div class="mnote">Artifacts you have earned by winning matches. Tap one to enter the 3D chamber.</div></div>
+  <div class="musgrid" id="musgrid"></div>
+</div>
+
+<!-- ===== MUSEUM SINGLE VIEW ===== -->
+<div id="scr-view" class="screen">
+  <div class="hud">
+    <div class="turn" id="view-name">Artifact</div>
+    <button class="btn ghost" id="btn-view-back" style="width:auto;padding:8px 12px">Back</button>
+  </div>
+  <div id="mus-view"><div id="mus-host" style="min-height:260px;display:flex;align-items:center;justify-content:center"></div></div>
+  <div class="card">
+    <div class="hiero" id="view-hiero"></div>
+    <div class="mnote" id="view-desc"></div>
+  </div>
+</div>
+
+</div>
+
+<footer>
+  Senet: Soul of Egypt v0.1<br>
+  Created by Paul A.T. Ramey &nbsp;&middot;&nbsp;
+  <a href="https://www.ksoldesigns.com" target="_blank" rel="noopener" style="color:#8a6b22;text-decoration:none">www.ksoldesigns.com</a>
+  &nbsp;&middot;&nbsp; Potassium Solutions
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =========================================================================
+   SENET: SOUL OF EGYPT  — v0.1 vertical slice
+   Single-file PWA. Museum reuses the Stonecutter Three.js voxel pattern.
+   ========================================================================= */
+const $=id=>document.getElementById(id);
+const SAVE='senet_v01';
+let S=load();
+function load(){const def={gates:0,unlocked:1,cleared:0};try{return Object.assign(def,JSON.parse(localStorage.getItem(SAVE))||{})}catch(e){return def}}
+function save(){localStorage.setItem(SAVE,JSON.stringify(S))}
+
+/* ---------- board geometry ----------
+   Every board is 30 squares in a fixed path — only the SHAPE (where each square
+   sits on screen) changes. A shape is an ASCII stencil ('#' = a square, ' ' = gap)
+   with exactly 30 '#'. We snake through it (boustrophedon) to get the path order. */
+function pathFromMask(mask, dir){
+  const rows=mask.length;
+  const rowIdx=[...Array(rows).keys()];
+  if(dir==='up') rowIdx.reverse();          // start at the bottom (climb the monument)
+  const pos=[]; let flip=false;
+  for(const r of rowIdx){
+    const line=mask[r]; const cells=[];
+    for(let c=0;c<line.length;c++) if(line[c]!==' ') cells.push([r,c]);
+    if(flip) cells.reverse();
+    cells.forEach(p=>pos.push(p));
+    flip=!flip;
+  }
+  return pos;   // pos[0] = square 1 … pos[29] = square 30
+}
+// Glyph library — one entry per ROLE. A level assigns roles to squares.
+const GLYPH={
+  rebirth:{s:'☥',        look:'Ankh',   type:'rebirth',n:'House of Rebirth',        d:'A stone swept off by the Nile comes back to life here.',
+      sym:'The ankh is the Egyptian sign for life itself — fitting for the square where a lost stone is reborn.'},
+  safe:{s:'\u{1FAB7}',   look:'Lotus',  type:'safe',   n:'House of Happiness',      d:'A safe square — no stone resting here can ever be captured.',
+      sym:'The lotus closes at dusk and reopens with the dawn — Egypt’s emblem of joy, sun and rebirth.'},
+  water:{s:'\u{1F30A}',  look:'Wave',   type:'water',  n:'House of Water',          d:'The Nile! Land here and the current sweeps a stone back to the House of Rebirth (☥).',
+      sym:'The wave is the water of the Nile — the flood that sweeps an unlucky stone away.'},
+  g28:{s:'\u{1FAB6}',    look:'Feather',type:'gate',   n:'House of the Three Truths',d:'A stone can only leave here on an exact throw of 3.',
+      sym:'The feather of Ma‘at, goddess of truth — your heart is weighed against it to judge the soul.'},
+  g29:{s:'☀️', look:'Sun',    type:'gate',   n:'House of Re-Atoum',       d:'A stone can only leave here on an exact throw of 2.',
+      sym:'The sun disc of Ra-Atum, the creator sun-god who is born anew each morning.'},
+  g30:{s:'\u{1F985}',    look:'Falcon', type:'gate',   n:'House of Horus',          d:'The final gate — a stone bears off only on an exact throw of 1.',
+      sym:'The falcon of Horus, the sky-god — the last gate the soul passes through to victory.'}
+};
+// The 10-trial campaign, ordered simplest shape → most intricate. Each board is the SAME game
+// (5 pawns, cast the sticks, bear off) laid out in a different silhouette. Board SIZE varies with
+// the stencil — the game adapts to any number of squares.
+//   mask: ASCII stencil ('#' = a square). dir 'up' = path climbs from the base; 'down' = classic.
+//   traps: how many Nile squares this trial has. ai: 1 Novice · 2 Adept · 3 Master.
+const LEVELS=[
+  {name:'The First Trial', shape:'Classic board', dir:'down', traps:1, ai:1,
+   sub:'The authentic board of the pharaohs — one Nile trap, one safe house.',
+   mask:['##########','##########','##########']},
+
+  {name:'The Great Pyramid', shape:'Pyramid', dir:'up', traps:1, ai:1,
+   sub:'Climb the tomb of Khufu from its wide base to the golden capstone.',
+   mask:['     #     ','    ###    ','   #####   ','  #######  ',' ######### ','###########']},
+
+  {name:'Step Pyramid of Djoser', shape:'Step pyramid', dir:'up', traps:2, ai:2,
+   sub:'Egypt’s oldest great tomb, rising in three mighty stone tiers.',
+   mask:['    ###    ','    ###    ','  #######  ','  #######  ','###########','###########']},
+
+  {name:'The Obelisk', shape:'Obelisk', dir:'up', traps:2, ai:2,
+   sub:'A single needle of granite reaching for the sun.',
+   mask:['  #  ',' ### ',' ### ',' ### ',' ### ',' ### ',' ### ',' ### ',' ### ',' ### ','#####']},
+
+  {name:'The Djed Pillar', shape:'Djed pillar', dir:'up', traps:2, ai:2,
+   sub:'The backbone of Osiris — endurance rising to the sacred crossbars.',
+   mask:['#########','   ###   ','#########','   ###   ','   ###   ','   ###   ','   ###   ',' ####### ']},
+
+  {name:'The Sarcophagus', shape:'Coffin', dir:'up', traps:3, ai:2,
+   sub:'The great stone coffin — rise from the foot to the mummy’s head.',
+   mask:['  ###  ',' ##### ','#######','#######','#######','#######',' ##### ','  ###  ']},
+
+  {name:'The Ankh', shape:'Ankh', dir:'up', traps:3, ai:3,
+   sub:'The key of life itself — climb the cross to its sacred loop.',
+   mask:['   ###   ','  #   #  ',' #     # ',' #     # ','  #   #  ','   ###   ','#########','   ###   ','   ###   ','   ###   ','   ###   ']},
+
+  {name:'The Pharaoh’s Mask', shape:'Funeral mask', dir:'up', traps:3, ai:3,
+   sub:'The golden face of the boy-king, from beard to crown.',
+   mask:['  #####  ',' ####### ','#########','#########',' ####### ','  #####  ','   ###   ','   ###   ']},
+
+  {name:'Riddle of the Sphinx', shape:'Sphinx', dir:'up', traps:4, ai:3,
+   sub:'Race along the great lion’s body to the guardian’s raised head.',
+   mask:['        ###','        ###','     ######','  #########','###########','###########']},
+
+  {name:'Trial of Osiris', shape:'Scarab', dir:'up', traps:4, ai:3,
+   sub:'The scarab of rebirth — the final judgment of the soul.',
+   mask:['    ###    ','  #######  ','###########','###########','  #######  ','#  #####  #',' #       # ']}
+];
+
+// Hazards are computed from the board size N so every board keeps the classic feel.
+// ONE House of Rebirth per board, placed BEFORE every Nile — so a Nile can only ever send a
+// stone BACKWARD to it, never forward. The last 5 squares are the approach:
+//   [safe N-4][Nile N-3][gate3 N-2][gate2 N-1][gate1 N].
+function buildHazards(N, traps){
+  const gates={}; gates[N]=1; gates[N-1]=2; gates[N-2]=3;
+  const safe=new Set([N-4]);
+  // single rebirth: for the classic 1-Nile board it sits mid-board (authentic); with more
+  // Niles it sits just past the opening so every Nile stays ahead of it.
+  const R = (traps===1) ? Math.max(12, Math.round(N/2)) : 12;
+  const rebirth=new Set([R]);
+  const water={}; water[N-3]=R;                        // the final Nile, just before the gates
+  const used=sq=>gates[sq]||safe.has(sq)||rebirth.has(sq)||water[sq]||sq<=R+1||sq>N-3;
+  const lo=R+2, hi=N-6;                                // extra Niles live strictly after R
+  for(let k=1;k<traps;k++){
+    let t=Math.round(lo+(hi-lo)*k/traps), g=0;
+    while(used(t) && g++<N){ t--; if(t<lo) t=hi; }
+    if(!used(t)) water[t]=R;                           // every Nile → the one rebirth point
+  }
+  return {gates, safe:[...safe], rebirth:[...rebirth], water};
+}
+
+// current-level state (populated by loadLevel)
+let HOUSES={}, SAFE=new Set(), WATER={}, GATE={}, NSQ=30, aiLevel=1, curLevel=0, LAYOUT=[], GRIDR=3, GRIDC=10;
+function loadLevel(idx){
+  curLevel=idx; const L=LEVELS[idx];
+  const P=pathFromMask(L.mask, L.dir||'down');
+  NSQ=P.length;
+  LAYOUT=[]; P.forEach((rc,i)=>LAYOUT[i+1]=rc);
+  GRIDR=L.mask.length; GRIDC=Math.max(...L.mask.map(s=>s.length));
+  const H=buildHazards(NSQ, L.traps||1);
+  GATE=H.gates;
+  HOUSES={};
+  H.rebirth.forEach(sq=>HOUSES[sq]={...GLYPH.rebirth});
+  H.safe.forEach(sq=>HOUSES[sq]={...GLYPH.safe});
+  for(const sq in H.water) HOUSES[sq]={...GLYPH.water};
+  const gateGlyph={3:GLYPH.g28,2:GLYPH.g29,1:GLYPH.g30};
+  for(const sq in GATE) HOUSES[sq]={...gateGlyph[GATE[sq]]};   // last 3 squares = exit gates
+  SAFE=new Set(H.safe);
+  WATER={}; for(const sq in H.water) WATER[+sq]=H.water[sq];
+  aiLevel=L.ai||1;
+}
+
+/* ---------- game state ---------- */
+let G=null;
+function newGame(){
+  // board[1..NSQ] = 'p1' | 'p2' | null. Classic alternating opening on the first 10 squares.
+  const board=new Array(NSQ+1).fill(null);
+  for(let i=1;i<=10;i++) board[i]= (i%2===1)?'p1':'p2';
+  G={board,turn:'p1',roll:0,rolled:false,extra:false,home:{p1:0,p2:0},over:false,moves:[]};
+  $('lvltag').textContent='Level '+(curLevel+1)+' · '+LEVELS[curLevel].name+'  ·  '+LEVELS[curLevel].shape+' board  ·  Scribe: '+aiName(aiLevel);
+  renderBoard();updateHud();$('throwline').textContent='Your move — cast the sticks.';
+  $('btn-throw').disabled=false;$('btn-throw').textContent='Cast the sticks';
+}
+function aiName(l){return ['—','Novice','Adept','Master'][l]||'Novice';}
+function startLevel(i){ loadLevel(i); goScreen('game'); newGame(); }
+function showLevels(){ goScreen('levels'); renderLevels(); }
+function renderLevels(){
+  const host=$('levellist');host.innerHTML='';
+  LEVELS.forEach((L,i)=>{
+    const unlocked=i<S.unlocked, cleared=i<S.cleared;
+    const N=L.mask.join('').replace(/ /g,'').length;
+    const hz=buildHazards(N, L.traps||1);
+    const w=Object.keys(hz.water).length, s=hz.safe.length;
+    const d=document.createElement('div');
+    d.className='lvl'+(unlocked?'':' lock');
+    d.innerHTML='<div class="lvl-h"><b>'+(cleared?'★ ':'')+'Level '+(i+1)+' · '+L.name+'</b><span>'+(unlocked?'':'&#128274; locked')+'</span></div>'
+      +'<div class="mnote" style="margin-top:4px">'+(unlocked?L.sub:'Win the previous trial to unlock this board.')+'</div>'
+      +(unlocked?'<div class="lvl-meta"><span>&#128208; '+L.shape+'</span><span>&#127754; '+w+' trap'+(w!==1?'s':'')+'</span><span>&#129003; '+s+' safe</span><span>Scribe: '+aiName(L.ai)+'</span></div>':'');
+    if(unlocked) d.onclick=()=>startLevel(i);
+    host.appendChild(d);
+  });
+}
+
+/* ---------- casting sticks: 4 sticks, lights up = move; 0 -> 5 ---------- */
+function castSticks(){
+  const faces=[0,0,0,0].map(()=>Math.random()<0.5?1:0);
+  let n=faces.reduce((a,b)=>a+b,0);
+  const move=(n===0)?5:n;
+  return {faces,move};
+}
+
+/* ---------- legal moves for a player given a roll ---------- */
+function legalMoves(board,player,move){
+  const res=[];
+  for(let sq=1;sq<=NSQ;sq++){
+    if(board[sq]!==player) continue;
+    const t=sq+move;
+    // bearing off
+    if(t>NSQ){
+      // only from gate squares with the exact throw
+      if(GATE[sq]!==undefined && GATE[sq]===move && t===NSQ+1){res.push({from:sq,to:NSQ+1,bear:true});}
+      continue;
+    }
+    // on a gate square you may ONLY leave with the exact throw
+    if(GATE[sq]!==undefined && GATE[sq]!==move) continue;
+    // can't land on own pawn
+    if(board[t]===player) continue;
+    // blockade of 3 in a row between sq+1..t-1 blocks passage
+    if(blocked(board,player,sq,t)) continue;
+    // landing on opponent: capture-swap, unless on a safe square or guarded pair
+    if(board[t] && board[t]!==player){
+      if(SAFE.has(t)) continue;                      // safe house — can't be taken
+      if(guarded(board,board[t],t)) continue;        // guarded pieces can't be taken
+    }
+    res.push({from:sq,to:t,cap:(board[t]&&board[t]!==player)});
+  }
+  return res;
+}
+function guarded(board,owner,sq){
+  return (board[sq-1]===owner)||(board[sq+1]===owner);
+}
+function blocked(board,player,from,to){
+  // three consecutive opponent pieces anywhere strictly between form an impassable wall
+  const opp=player==='p1'?'p2':'p1';
+  let run=0;
+  for(let s=from+1;s<to;s++){
+    if(board[s]===opp){run++; if(run>=3) return true;} else run=0;
+  }
+  return false;
+}
+
+/* ---------- apply a move ---------- */
+function applyMove(board,player,mv){
+  const opp=player==='p1'?'p2':'p1';
+  if(mv.bear){ board[mv.from]=null; G.home[player]++; return; }
+  const dest=board[mv.to];
+  board[mv.from]=null;
+  if(dest && dest!==player){ board[mv.from]=dest; } // swap opponent back to the vacated square
+  board[mv.to]=player;
+  // House of Water: swept back to this trap's rebirth square (or nearest empty below it)
+  if(WATER[mv.to]!==undefined){
+    board[mv.to]=null;
+    let back=WATER[mv.to];
+    while(back>0 && board[back]) back--;
+    if(back>0) board[back]=player; else board[mv.to]=player; // extremely rare: nowhere free, stay put
+  }
+}
+
+/* ---------- turn flow ---------- */
+function doThrow(){
+  if(G.over||G.rolled) return;
+  const {faces,move}=castSticks();
+  animSticks(faces);
+  G.roll=move;G.rolled=true;
+  const extra=(move===1||move===4||move===5);
+  const mv=legalMoves(G.board,G.turn,move);
+  $('btn-throw').disabled=true;
+  if(mv.length===0){
+    $('throwline').textContent='You cast a '+move+' — no pawn can move. Turn passes.';
+    setTimeout(()=>endTurn(false),1100);
+    return;
+  }
+  if(G.turn==='p1'){
+    G.moves=mv;highlightPicks(mv);
+  }else{
+    $('throwline').textContent='The Scribe cast a '+move+'…';
+    setTimeout(()=>aiMove(mv,extra),650);
+  }
+  G._extra=extra;
+}
+
+function humanPick(sq){
+  const mv=G.moves.find(m=>m.from===sq);
+  if(!mv) return;
+  clearHighlights();
+  applyMove(G.board,'p1',mv);
+  if(mv.cap) beep(180,.08); if(WATER[mv.to]!==undefined) beep(120,.15);
+  renderBoard();updateHud();
+  if(checkWin()) return;
+  endTurn(G._extra);
+}
+function endTurn(extra){
+  G.rolled=false;G.moves=[];
+  if(extra && !G.over){
+    // same player throws again
+    if(G.turn==='p2'){setTimeout(()=>{G.rolled=false;doThrow();},500);}
+    else{$('btn-throw').disabled=false;$('throwline').textContent='Throw again!';}
+    return;
+  }
+  G.turn=G.turn==='p1'?'p2':'p1';
+  updateHud();
+  if(G.turn==='p2'){$('btn-throw').disabled=true;setTimeout(doThrow,600);}
+  else{$('btn-throw').disabled=false;$('throwline').textContent='Your throw.';}
+}
+
+/* ---------- AI: score each move, pick best. Strength scales with aiLevel (1 Novice · 2 Adept · 3 Master). */
+function aiMove(mv,extra){
+  let choice;
+  if(aiLevel===1 && Math.random()<0.30){          // Novice: sometimes plays a careless random move
+    choice=mv[Math.floor(Math.random()*mv.length)];
+  }else{
+    let best=mv[0],bs=-1e9;
+    for(const m of mv){const s=scoreAI(m); if(s>bs){bs=s;best=m;}}
+    choice=best;
+  }
+  applyMove(G.board,'p2',choice);
+  if(choice.cap) beep(180,.08); if(WATER[choice.to]!==undefined) beep(120,.15);
+  renderBoard();updateHud();
+  if(checkWin()) return;
+  endTurn(extra);
+}
+function scoreAI(m){
+  let s=m.to;                                   // advance
+  if(m.bear) s+=120;
+  if(m.cap)  s+= aiLevel>=2?45:28;              // stronger AIs value captures more
+  if(WATER[m.to]!==undefined) s-=70;            // avoid every Nile trap
+  if(SAFE.has(m.to)) s+=10;                     // like safe houses
+  if(guardsAfter(G.board,'p2',m)) s+= aiLevel>=2?12:5; // form guarded pairs
+  if(aiLevel>=3){                               // Master: don't hang stones; push the lead
+    if(exposedAfter(m.to,'p2')) s-=26;
+    s += m.to*0.3;
+  }
+  return s;
+}
+function guardsAfter(board,owner,m){
+  return board[m.to-1]===owner||board[m.to+1]===owner;
+}
+// rough: would a stone at sq be capturable by the opponent on their next turn?
+function exposedAfter(sq,owner){
+  if(SAFE.has(sq)) return false;
+  if(G.board[sq-1]===owner||G.board[sq+1]===owner) return false; // guarded
+  const opp=owner==='p2'?'p1':'p2';
+  for(let k=1;k<=5;k++){ if(G.board[sq-k]===opp) return true; }
+  return false;
+}
+
+function checkWin(){
+  if(G.home.p1>=5){win('p1');return true;}
+  if(G.home.p2>=5){win('p2');return true;}
+  return false;
+}
+function win(who){
+  G.over=true;$('btn-throw').disabled=true;
+  if(who==='p1'){
+    const before=S.gates;
+    S.gates=Math.min(ARTIFACTS.length,S.gates+1);
+    const firstClear = curLevel>=S.cleared;
+    S.cleared=Math.max(S.cleared,curLevel+1);
+    S.unlocked=Math.min(LEVELS.length,Math.max(S.unlocked,curLevel+2));
+    save();
+    const art=ARTIFACTS[before]||ARTIFACTS[ARTIFACTS.length-1];
+    const nextExists = curLevel+1<LEVELS.length;
+    let btns='';
+    if(nextExists) btns+='<button class="btn" onclick="closeOverlay();startLevel('+(curLevel+1)+')">Next trial: '+LEVELS[curLevel+1].name+' &rarr;</button>';
+    else btns+='<div class="art" style="margin:0 0 10px"><div class="t">&#128081; You have crossed the whole Duat — every trial complete!</div></div>';
+    btns+='<button class="btn ghost" style="margin-top:8px" onclick="closeOverlay();showMuseum()">&#127963;&#65039; Museum</button>';
+    btns+='<button class="btn ghost" style="margin-top:8px" onclick="closeOverlay();newGame()">Replay this trial</button>';
+    overlay('<h2>&#9728;&#65039; '+LEVELS[curLevel].name+' — cleared!</h2>'
+      +'<p class="mnote">Your soul passes deeper into the Duat.'+(firstClear&&nextExists?' A new trial opens.':'')+' A new artifact awaits in the museum:</p>'
+      +'<div class="art" style="margin:12px 0"><div class="g">'+art.g+'</div><div class="t">'+art.n+'</div></div>'
+      +btns);
+  }else{
+    overlay('<h2>&#9906; The Nile claims you</h2>'
+      +'<p class="mnote">The Scribe reached Horus first on '+LEVELS[curLevel].name+'. Cast again, traveller.</p>'
+      +'<button class="btn" onclick="closeOverlay();newGame()">Try again</button>'
+      +'<button class="btn ghost" style="margin-top:8px" onclick="closeOverlay();showLevels()">Choose a trial</button>');
+  }
+}
+
+/* ---------- rendering ---------- */
+function renderBoard(){
+  const b=$('board');b.innerHTML='';
+  // size the grid to this level's silhouette; place each square at its layout cell
+  b.style.gridTemplateColumns='repeat('+GRIDC+',var(--cell))';
+  b.style.gridTemplateRows='repeat('+GRIDR+',var(--cell))';
+  for(let sq=1;sq<=NSQ;sq++){
+    const rc=LAYOUT[sq]; if(!rc) continue;
+    const d=document.createElement('div');const h=HOUSES[sq];
+    d.className='cell'+(h?' special t-'+h.type:'');
+    d.style.gridRow=(rc[0]+1); d.style.gridColumn=(rc[1]+1);
+    d.dataset.sq=sq;
+    if(h) d.dataset.tip=h.look+' · '+h.n+' — '+h.d;
+    let inner='<span class="num">'+sq+'</span>';
+    if(h) inner+='<span>'+h.s+'</span>';
+    const p=G.board[sq];
+    if(p) inner='<div class="pawn '+p+' cone"></div><span class="num">'+sq+'</span>';
+    d.innerHTML=inner;
+    b.appendChild(d);
+  }
+}
+function highlightPicks(mv){
+  clearHighlights();
+  const froms=new Set(mv.map(m=>m.from));
+  document.querySelectorAll('.cell').forEach(c=>{
+    const sq=+c.dataset.sq;
+    if(froms.has(sq)){c.classList.add('pick');c.onclick=()=>selectPawn(sq);}
+  });
+  if(froms.size===1){ selectPawn([...froms][0]); }   // only one pawn can move — pick it for them
+  else { $('throwline').textContent='You cast a '+G.roll+' — tap a glowing pawn (they bounce).'; }
+}
+function whyBlocked(sq){
+  const m=G.roll,t=sq+m;
+  if(GATE[sq]!==undefined && GATE[sq]!==m) return 'that pawn can only leave square '+sq+' on an exact throw of '+GATE[sq]+'.';
+  if(t>NSQ) return 'that throw would overshoot the end — it needs an exact roll to bear off.';
+  if(G.board[t]==='p1') return 'your own pawn is already on square '+t+'.';
+  if(G.board[t]==='p2'){
+    if(SAFE.has(t)) return 'that blue stone is on a safe house (square '+t+') — it can\'t be taken.';
+    if(G.board[t-1]==='p2'||G.board[t+1]==='p2') return 'that blue stone is guarded by a neighbor — guarded stones can\'t be captured.';
+  }
+  if(blocked(G.board,'p1',sq,t)) return 'a wall of three blue stones blocks the path.';
+  return null;
+}
+function hintBad(cell){
+  if(!G) return;
+  const sq=+cell.dataset.sq;
+  let msg=null;
+  if(G.rolled && G.turn==='p1' && G.board[sq]==='p1'){ const w=whyBlocked(sq); if(w) msg='Blocked: '+w; }
+  if(!msg && HOUSES[sq]) msg=HOUSES[sq].look+' · '+HOUSES[sq].n+' — '+HOUSES[sq].d;   // tap a special square to learn it
+  if(!msg && G.rolled && G.turn==='p1') msg='That stone can\'t move a '+G.roll+' — tap a bouncing pawn.';
+  if(!msg) return;
+  $('throwline').textContent=msg;
+  cell.classList.remove('hintbad');void cell.offsetWidth;cell.classList.add('hintbad');
+  beep(140,.05);
+}
+let selFrom=null;
+function selectPawn(sq){
+  selFrom=sq;
+  document.querySelectorAll('.cell').forEach(c=>{c.classList.remove('move');c.onclick=null;});
+  $('throwline').textContent='Now tap the glowing green square to move there.';
+  const dests=G.moves.filter(m=>m.from===sq);
+  // re-enable other picks
+  const froms=new Set(G.moves.map(m=>m.from));
+  document.querySelectorAll('.cell').forEach(c=>{
+    const s=+c.dataset.sq;
+    if(froms.has(s)) c.onclick=()=>selectPawn(s);
+  });
+  dests.forEach(m=>{
+    const cell=[...document.querySelectorAll('.cell')].find(c=>+c.dataset.sq===(m.bear?sq:m.to));
+    if(m.bear){ // bearing off: click the pawn's own square again
+      const own=[...document.querySelectorAll('.cell')].find(c=>+c.dataset.sq===sq);
+      own.classList.add('move');own.onclick=()=>humanPick(sq);
+      $('throwline').textContent='Bear off from '+sq+'!';
+    }else if(cell){cell.classList.add('move');cell.onclick=()=>humanPick(sq);}
+  });
+}
+function clearHighlights(){
+  document.querySelectorAll('.cell').forEach(c=>{c.classList.remove('pick','move');c.onclick=null;});
+  selFrom=null;
+}
+function updateHud(){
+  $('b1').textContent=G.home.p1;$('b2').textContent=G.home.p2;
+  renderScore('slots1','f1',G.home.p1);
+  renderScore('slots2','f2',G.home.p2);
+  $('turn').innerHTML=(G.turn==='p1')
+    ?'<span class="dot p1"></span>Your turn'
+    :'<span class="dot p2"></span>The Scribe';
+}
+function renderScore(id,fill,n){
+  const host=$(id);const prev=host.children.length?[...host.children].filter(c=>c.classList.contains(fill)).length:0;
+  host.innerHTML='';
+  for(let i=0;i<5;i++){
+    const s=document.createElement('div');
+    s.className='slot'+(i<n?' '+fill:'')+(i<n&&i>=prev?' just':'');
+    host.appendChild(s);
+    if(i<n&&i>=prev) setTimeout(()=>s.classList.remove('just'),320);
+  }
+}
+function animSticks(faces){
+  const els=$('sticks').children;
+  for(let i=0;i<4;i++){
+    els[i].classList.remove('up','roll');void els[i].offsetWidth;
+    els[i].classList.add('roll');
+    setTimeout(()=>{els[i].classList.toggle('up',faces[i]===1);},260);
+  }
+  beep(320,.05);
+}
+
+/* ---------- tiny sound ---------- */
+let AC=null;
+function beep(f,d){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;o.type='triangle';g.gain.value=.06;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.stop(AC.currentTime+d);}catch(e){}}
+
+/* =========================================================================
+   MUSEUM — reuses the Stonecutter voxel + orbit pattern (render3D)
+   ========================================================================= */
+// compact voxel builders (x,y,z)
+function rect(x0,x1,y0,y1,z,out){for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)out.push([x,y,z]);}
+function col(x,y0,y1,z,out){for(let y=y0;y<=y1;y++)out.push([x,y,z]);}
+function rowX(x0,x1,y,z,out){for(let x=x0;x<=x1;x++)out.push([x,y,z]);}
+function ankh(){const v=[];col(0,0,6,0,v);rowX(-2,2,4,0,v);/*loop*/[[-1,7],[1,7],[-1,8],[1,8],[0,9]].forEach(p=>v.push([p[0],p[1],0]));return v;}
+function eye(){const v=[];rowX(-3,3,3,0,v);col(-3,3,4,0,v);col(3,3,4,0,v);[[-2,4],[2,4],[-1,5],[0,5],[1,5]].forEach(p=>v.push([p[0],p[1],0]));v.push([0,3,0]);col(-3,0,2,0,v);v.push([-4,1,0]);v.push([-5,0,0]);return v;}
+function scarab(){const v=[];rect(-2,2,0,3,0,v);v.push([0,4,0],[-1,5,0],[1,5,0]);[[-3,1],[3,1],[-3,2],[3,2]].forEach(p=>v.push([p[0],p[1],0]));return v;}
+function djed(){const v=[];col(0,0,7,0,v);for(let y=5;y<=8;y+=1)rowX(-2,2,y,0,v);return v;}
+function jar(){const v=[];rect(-2,2,0,5,0,v);v.push([-1,6,0],[0,6,0],[1,6,0],[0,7,0]);return v;}
+function was(){const v=[];col(0,0,8,0,v);v.push([-1,9,0],[1,8,0]);rowX(-1,1,0,0,v);return v;}
+function coffin(){const v=[];rect(-2,2,0,7,0,v);v.push([0,8,0]);return v;}
+function heart(){const v=[];rowX(-3,3,2,0,v);col(-3,0,3,0,v);col(3,0,3,0,v);v.push([-4,1,0],[4,1,0],[0,0,0]);return v;}
+
+const ARTIFACTS=[
+ {n:'The Ankh',g:'☥',c:0xE0B84A,vox:ankh,hiero:'\u{13153}',d:"The key of life. Gods hold it to the pharaoh's lips to grant eternal breath. To win at Senet was, symbolically, to be given this — life beyond death."},
+ {n:'Eye of Horus',g:'\u{1F441}️',c:0x2f7fb0,vox:eye,hiero:'\u{131A0}',d:"The Wedjat — a healing, protecting eye. Its six parts were even used as fractions by scribes. Painted on tombs and amulets to guard the soul on its journey."},
+ {n:'The Scarab',g:'\u{1FAB2}',c:0x2f8f6a,vox:scarab,hiero:'\u{13089}',d:"The dung beetle Khepri rolls the sun across the sky each dawn — a symbol of rebirth. Heart-scarabs were placed over the mummy's chest for the final judgment."},
+ {n:'The Djed Pillar',g:'\u{1F5FF}',c:0xC8A24A,vox:djed,hiero:'\u{131CB}',d:"The backbone of Osiris — stability and endurance. Raised upright in ceremonies, it promised the dead a firm spine to stand again in the afterlife."},
+ {n:'Canopic Jar',g:'\u{1F3FA}',c:0xB98A4A,vox:jar,hiero:'\u{13363}',d:"Four jars guarded by the Sons of Horus held the organs of the dead. The lidded head watched over each one so the body could be made whole in the Field of Reeds."},
+ {n:'The Was Scepter',g:'\u{1FA84}',c:0xE8C669,vox:was,hiero:'\u{13487}',d:"A staff of power and dominion, forked at the base and topped with an animal head. Carried by gods and kings as a sign of command over the ordered world."},
+ {n:'The Sarcophagus',g:'⚱️',c:0xC9A876,vox:coffin,hiero:'\u{133BC}',d:"The stone coffin — literally 'flesh-eater' in Greek. Nested cases of gold and cedar protected the pharaoh, painted inside with maps of the Duat to guide the soul."},
+ {n:'Weighing of the Heart',g:'⚖️',c:0xD9C49A,vox:heart,hiero:'\u{13000}',d:"In the Hall of Two Truths, Anubis weighs the heart against the feather of Ma'at. Lighter than truth, the soul passes on. This scene is the finish line of Senet itself."},
+];
+
+let R3=null,museAnim=null;
+function showMuseum(){
+  goScreen('museum');
+  const g=$('musgrid');g.innerHTML='';
+  ARTIFACTS.forEach((a,i)=>{
+    const un=i<S.gates;
+    const d=document.createElement('div');
+    d.className='art'+(un?'':' lock');
+    d.innerHTML='<div class="g">'+(un?a.g:'\u{1F512}')+'</div><div class="t">'+(un?a.n:'Gate '+(i+1))+'</div>';
+    if(un) d.onclick=()=>viewArtifact(i);
+    g.appendChild(d);
+  });
+}
+function viewArtifact(i){
+  const a=ARTIFACTS[i];
+  goScreen('view');
+  $('view-name').textContent=a.n;
+  $('view-hiero').textContent=a.hiero;
+  $('view-desc').textContent=a.d;
+  render3D(a);
+}
+function render3D(a){
+  const host=$('mus-host');
+  if(!window.THREE){host.innerHTML='<p class="mnote">The 3D chamber needs one visit with internet first.</p>';return;}
+  if(museAnim) museAnim.stop=true;
+  const w=Math.max(260,Math.min((window.innerWidth||400)-24,460)),hpx=Math.round(w*0.62);
+  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.setSize(w,hpx);
+  renderer.domElement.style.cssText='touch-action:none;cursor:grab;border-radius:12px';
+  host.innerHTML='';host.appendChild(renderer.domElement);
+  const scene=new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff,0.7));
+  const dl=new THREE.DirectionalLight(0xfff2d0,0.85);dl.position.set(8,16,10);scene.add(dl);
+  const group=new THREE.Group();scene.add(group);
+  const geo=new THREE.BoxGeometry(0.92,0.92,0.92);
+  const mat=new THREE.MeshLambertMaterial({color:a.c});
+  const V=a.vox();
+  let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
+  V.forEach(v=>{mnx=Math.min(mnx,v[0]);mxx=Math.max(mxx,v[0]);mny=Math.min(mny,v[1]);mxy=Math.max(mxy,v[1]);});
+  const cx=(mnx+mxx)/2,cy=(mny+mxy)/2;
+  V.forEach((v,i)=>{const m=new THREE.Mesh(geo,mat);m.position.set(v[0]-cx,v[1]-cy,v[2]);group.add(m);
+    m.scale.setScalar(0);setTimeout(()=>m.scale.setScalar(1),i*22);});
+  const span=Math.max(mxx-mnx,mxy-mny)+3;
+  const cam=new THREE.PerspectiveCamera(42,w/hpx,0.1,200);
+  let dist=1;
+  function upcam(){cam.position.set(0,0,span*1.6*dist);cam.lookAt(0,0,0);}
+  upcam();
+  const el=renderer.domElement;const pts=new Map();
+  el.onpointerdown=e=>{pts.set(e.pointerId,{x:e.clientX,y:e.clientY});el.setPointerCapture(e.pointerId);el.style.cursor='grabbing';};
+  el.onpointermove=e=>{const p=pts.get(e.pointerId);if(!p)return;group.rotation.y+=(e.clientX-p.x)*0.01;group.rotation.x+=(e.clientY-p.y)*0.008;p.x=e.clientX;p.y=e.clientY;};
+  el.onpointerup=el.onpointercancel=e=>{pts.delete(e.pointerId);el.style.cursor='grab';};
+  el.onwheel=e=>{e.preventDefault();dist=Math.min(2.2,Math.max(0.5,dist*(1+e.deltaY*0.001)));upcam();};
+  const A={stop:false};museAnim=A;
+  (function loop(){if(A.stop)return;if(pts.size===0)group.rotation.y+=0.006;renderer.render(scene,cam);requestAnimationFrame(loop);})();
+}
+
+/* =========================================================================
+   NAVIGATION + OVERLAY
+   ========================================================================= */
+function goScreen(n){['home','game','museum','view','levels'].forEach(x=>$('scr-'+x).classList.toggle('on',x===n));if(museAnim&&n!=='view'){museAnim.stop=true;}}
+function goHome(){goScreen('home');$('home-prog').textContent=S.cleared+' of '+LEVELS.length+' trials cleared · '+S.gates+' of '+ARTIFACTS.length+' artifacts earned.';}
+function overlay(html){const o=document.createElement('div');o.className='ovl';o.id='ovl';o.innerHTML='<div class="box">'+html+'</div>';document.body.appendChild(o);}
+function closeOverlay(){const o=$('ovl');if(o)o.remove();}
+
+/* ---------- the KEY: what every symbol on the board means ---------- */
+function showKey(){
+  const row=(sym,name,desc)=>'<div style="display:flex;gap:10px;align-items:flex-start;margin:6px 0">'
+    +'<div style="font-size:22px;min-width:30px;text-align:center;line-height:1.2">'+sym+'</div>'
+    +'<div style="font-size:13px"><b>'+name+'</b> — '+desc+'</div></div>';
+  let html='<h2>&#128273; Key — every symbol on the board</h2>';
+  html+='<div class="mnote" style="margin:4px 0 4px"><b>Symbols on the squares</b></div>';
+  Object.keys(HOUSES).forEach(k=>{const h=HOUSES[k];
+    html+=row(h.s, h.look+' · '+h.n+' (sq '+k+')',
+      h.d+'<div style="margin-top:3px;color:#7a5e2e;font-size:12px"><b>'+h.look+':</b> <i>'+h.sym+'</i></div>');
+  });
+  html+='<div class="mnote" style="margin:12px 0 4px"><b>The stones</b></div>';
+  html+=row('<span class="pawn p1 cone" style="display:inline-block;width:20px;height:20px"></span>','Red stone','Yours — move them across and bear all 5 off to win.');
+  html+=row('<span class="pawn p2 cone" style="display:inline-block;width:20px;height:20px"></span>','Blue stone','The Scribe (opponent). Land on a lone blue stone to swap it backward.');
+  html+='<div class="mnote" style="margin:12px 0 4px"><b>Highlights on your turn</b></div>';
+  html+=row('<span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:#c96a54;box-shadow:0 0 0 3px #fff6d0,0 0 9px 3px #e8c669"></span>','Bouncing gold ring','A stone you can move this throw — tap it.');
+  html+=row('<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:#3f8f6a;box-shadow:0 0 7px #3f8f6a"></span>','Green target dot','Where that stone will land — tap it to move there.');
+  html+='<button class="btn" style="margin-top:12px" onclick="closeOverlay()">Got it</button>';
+  overlay(html);
+}
+
+/* ---------- wire up ---------- */
+$('btn-play').onclick=showLevels;
+$('btn-levels-back').onclick=goHome;
+$('btn-throw').onclick=doThrow;
+// tapping a stone that can't move this turn: gentle feedback instead of silence
+$('board').addEventListener('click',e=>{
+  const cell=e.target.closest('.cell');
+  if(cell && !cell.classList.contains('pick') && !cell.classList.contains('move')) hintBad(cell);
+});
+$('btn-quit').onclick=goHome;
+$('btn-key').onclick=showKey;
+$('btn-museum').onclick=showMuseum;
+$('btn-mus-back').onclick=goHome;
+$('btn-view-back').onclick=showMuseum;
+function castGlyph(up){let s='<span class="cast">';for(let i=0;i<4;i++)s+='<i class="'+(i<up?'up':'')+'"></i>';return s+'</span>';}
+$('btn-how').onclick=()=>overlay(
+  '<h2>How to play Senet</h2><div class="guide mnote">'
+
+  +'<h3>The goal</h3>'
+  +'<p>You have <b>5 red stones</b>; the Scribe has 5 blue. Both sides race along the same winding path, then <b>bear stones off</b> the far end. The first to get all 5 stones off wins — and your soul crosses the Duat. (Each trial is a different shape, so the board’s length changes — but the rules never do.)</p>'
+
+  +'<h3>1 · Cast the sticks</h3>'
+  +'<p>Instead of dice, Senet uses four flat sticks — dark on one side, light on the other. Tap <b>Cast the sticks</b> and count the <b>light</b> faces that land up. That count is how many squares you move:</p>'
+  +'<div class="ex">'+castGlyph(1)+' 1 light = move <b>1</b> &nbsp;·&nbsp; '+castGlyph(2)+' 2 = move <b>2</b> &nbsp;·&nbsp; '+castGlyph(3)+' 3 = move <b>3</b><br>'
+  +castGlyph(4)+' 4 light = move <b>4</b> &nbsp;·&nbsp; '+castGlyph(0)+' all dark = move <b>5</b></div>'
+
+  +'<h3>2 · Why you sometimes cast again</h3>'
+  +'<p>This is the rule that surprises everyone. After you cast <i>and</i> make your move, look at the number you threw:</p>'
+  +'<p>&#9989; If it was a <b>1, 4, or 5</b> — a lucky throw — you <b>cast again and move again</b>, all in the same turn.<br>'
+  +'&#128721; If it was a <b>2 or 3</b>, your turn ends and the Scribe plays.</p>'
+  +'<p>Lucky throws can chain: cast a 4 (move), then a 1 (move again), then a 3 (move, turn ends) — that\'s <b>three moves in one turn</b>. The line above the button says &ldquo;throw again!&rdquo; whenever you\'ve earned another cast.</p>'
+  +'<div class="ex"><b>Note:</b> if you cast a number but <i>no</i> stone can legally move, your turn ends — even on a lucky 1, 4, or 5.</div>'
+
+  +'<h3>3 · Move a stone</h3>'
+  +'<p>Your movable stones <b>bounce with a gold glow</b> — tap one, then tap the <b>green dot</b> where it will land. (If only one stone can move, it\'s chosen for you.) Stones only ever move <b>forward</b>, and you can\'t land on your own stone.</p>'
+
+  +'<h3>4 · Capturing &amp; staying safe</h3>'
+  +'<p>Land on a <b>lone</b> blue stone and you <b>swap places</b> with it — it gets sent backward to where you came from. But a stone is <b>protected</b> and cannot be taken if:</p>'
+  +'<p>&#128737;&#65039; it has a friend <b>right beside it</b> (two in a row guard each other), or<br>'
+  +'&#127807; it sits on the <b>safe square 26</b>.</p>'
+  +'<p>Three of a colour in a row make a <b>wall</b> that no one can pass. Tip: pair up your own stones so the Scribe can\'t touch them.</p>'
+
+  +'<h3>5 · The special squares</h3>'
+  +'<p>Tap the <b>&#128273; Key</b> button any time for this board\'s full list. The big ones: a <b>&#127754; Nile</b> square sweeps a stone back to the one <b>&#9765; House of Rebirth</b>; a <b>&#129003; safe house</b> can\'t be captured on. The <b>last three squares</b> are always the final gates — a stone leaves them only on an exact throw of <b>3 / 2 / 1</b>. <i>The board changes shape and length from trial to trial.</i></p>'
+
+  +'<h3>6 · Winning</h3>'
+  +'<p>Once a stone passes the final square it <b>bears off</b> and is safe forever. Bear off all 5 to win.</p>'
+
+  +'</div><button class="btn" style="margin-top:10px" onclick="closeOverlay()">Got it</button>');
+
+loadLevel(0);   // populate HOUSES/SAFE/WATER with a default board
+goHome();
+
+/* PWA */
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
+</script>
+</body>
+</html>

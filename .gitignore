@@ -1,0 +1,9 @@
+# Dev-only / non-web assets — keep the Pages repo to just the playable game
+board/
+Models/
+assets/
+*.docx
+Senet-boards.png
+Senet-boards*.png
+.DS_Store
+Thumbs.db
